@@ -11,6 +11,7 @@ public static class ProductoEndpoints
         grupo.MapGet("/", ObtenerTodos);
         grupo.MapGet("/{id:int}", ObtenerPorId);
         grupo.MapPost("/", CrearProducto);
+        grupo.MapPut("/{id:int}", ActualizarProducto);
 
         return app;
     }
@@ -56,5 +57,17 @@ public static class ProductoEndpoints
 
         var producto = store.Agregar(req.ToEntidad());
         return TypedResults.Created($"/api/productos/{producto.Id}", producto.ToResponse());
+    }
+    private static Results<NoContent, ValidationProblem, NotFound> ActualizarProducto(
+        int id, ActualizarProductoRequest req, ProductoStore store)
+    {
+        var errores = req.Validar();
+        if (errores.Count > 0)
+            return TypedResults.ValidationProblem(errores);
+        var producto = store.ObtenerPorId(id);
+        if (producto is null)
+            return TypedResults.NotFound();
+        producto.AplicarCambios(req);
+        return TypedResults.NoContent();
     }
 }
