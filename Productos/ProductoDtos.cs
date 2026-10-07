@@ -34,6 +34,16 @@ public static class ProductoMapeos
     public static ProductoResponse ToResponse(this Producto p) =>
         new(p.Id, p.Codigo, p.Nombre, p.Descripcion, p.PrecioVenta,
             p.Stock, p.StockMinimo, p.Categoria, p.Activo);
+    public static Producto ToEntidad(this CrearProductoRequest req) => new()
+    {
+        Codigo = req.Codigo.Trim(),
+        Nombre = req.Nombre.Trim(),
+        Descripcion = req.Descripcion?.Trim(),
+        PrecioVenta = req.PrecioVenta,
+        Stock = req.Stock,
+        StockMinimo = req.StockMinimo,
+        Categoria = req.Categoria.Trim()
+    };
 }
 
 

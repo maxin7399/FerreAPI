@@ -21,4 +21,6 @@ public class ProductoStore
         _productos[producto.Id] = producto;
         return producto;
     }
+    public bool ExisteCodigo(string codigo) =>
+    _productos.Values.Any(p => p.Codigo.Equals(codigo, StringComparison.OrdinalIgnoreCase));
 }

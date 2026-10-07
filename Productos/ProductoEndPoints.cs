@@ -10,6 +10,7 @@ public static class ProductoEndpoints
 
         grupo.MapGet("/", ObtenerTodos);
         grupo.MapGet("/{id:int}", ObtenerPorId);
+        grupo.MapPost("/", CrearProducto);
 
         return app;
     }
@@ -38,5 +39,22 @@ public static class ProductoEndpoints
             return TypedResults.NotFound();
 
         return TypedResults.Ok(producto.ToResponse());
+    }
+    private static Results<Created<ProductoResponse>, ValidationProblem, ProblemHttpResult> CrearProducto(
+    CrearProductoRequest req, ProductoStore store)
+    {
+        var errores = req.Validar();
+        if (errores.Count > 0)
+            return TypedResults.ValidationProblem(errores);
+
+        // TODO: race condition, se resuelve con índice único en la semana 4
+        if (store.ExisteCodigo(req.Codigo))
+            return TypedResults.Problem(
+                title: "Código duplicado",
+                detail: $"Ya existe un producto con el código '{req.Codigo}'.",
+                statusCode: StatusCodes.Status409Conflict);
+
+        var producto = store.Agregar(req.ToEntidad());
+        return TypedResults.Created($"/api/productos/{producto.Id}", producto.ToResponse());
     }
 }
