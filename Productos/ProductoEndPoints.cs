@@ -12,13 +12,14 @@ public static class ProductoEndpoints
         grupo.MapGet("/{id:int}", ObtenerPorId);
         grupo.MapPost("/", CrearProducto);
         grupo.MapPut("/{id:int}", ActualizarProducto);
+        grupo.MapDelete("/{id:int}", EliminarProducto);
 
         return app;
     }
     private static Ok<List<ProductoResponse>> ObtenerTodos(
     ProductoStore store, string? busqueda, string? categoria)
     {
-        var productos = store.ObtenerTodos();
+        var productos = store.ObtenerTodos().Where(p => p.Activo);
 
         if (!string.IsNullOrWhiteSpace(busqueda))
             productos = productos.Where(p =>
@@ -68,6 +69,15 @@ public static class ProductoEndpoints
         if (producto is null)
             return TypedResults.NotFound();
         producto.AplicarCambios(req);
+        return TypedResults.NoContent();
+    }
+    private static Results<NoContent, NotFound> EliminarProducto(int id, ProductoStore store)
+    {
+        var producto = store.ObtenerPorId(id);
+
+        if (producto is null)
+            return TypedResults.NotFound();
+        producto.Desactivar();
         return TypedResults.NoContent();
     }
 }

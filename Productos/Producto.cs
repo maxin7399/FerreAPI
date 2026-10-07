@@ -11,4 +11,5 @@ public class Producto
     public int StockMinimo { get; set; }
     public required string Categoria { get; set; }
     public bool Activo { get; set; } = true;
+    public void Desactivar() => Activo = false;
 }
