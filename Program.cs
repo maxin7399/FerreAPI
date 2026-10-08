@@ -1,9 +1,13 @@
+using FerreAPI.Data;
 using FerreAPI.Productos;
+using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton<ProductoStore>();
+builder.Services.AddDbContext<FerreDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("FerreApi")));
 
 var app = builder.Build();
 app.MapOpenApi();
