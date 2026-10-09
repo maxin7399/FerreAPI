@@ -36,7 +36,7 @@ public static class ProductoMapeos
             p.Stock, p.StockMinimo, p.Categoria, p.Activo);
     public static Producto ToEntidad(this CrearProductoRequest req) => new()
     {
-        Codigo = req.Codigo.Trim(),
+        Codigo = req.Codigo.Trim().ToUpperInvariant(),
         Nombre = req.Nombre.Trim(),
         Descripcion = req.Descripcion?.Trim(),
         PrecioVenta = req.PrecioVenta,
