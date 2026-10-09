@@ -3,7 +3,7 @@
     
 public record CrearProductoRequest(
 string Codigo, string Nombre, string? Descripcion, decimal PrecioVenta,
-int Stock, int StockMinimo, string Categoria)
+int Stock, int StockMinimo, int CategoriaId)
 {
     public Dictionary<string, string[]> Validar()
     {
@@ -19,21 +19,21 @@ int Stock, int StockMinimo, string Categoria)
             errores["stock"] = ["El stock no puede ser negativo."];
         if (StockMinimo < 0)
             errores["stockMinimo"] = ["El stock mínimo no puede ser negativo."];
-        if (string.IsNullOrWhiteSpace(Categoria))
-            errores["categoria"] = ["La categoría es obligatoria."];
+        if (CategoriaId <= 0)
+            errores["categoriaId"] = ["La categoría es obligatoria."];
 
         return errores;
     }
 }
 public record ProductoResponse(
     int Id, string Codigo, string Nombre, string? Descripcion, decimal PrecioVenta,
-    int Stock, int StockMinimo, string Categoria, bool Activo);
+    int Stock, int StockMinimo, int CategoriaId, string CategoriaNombre, bool Activo);
 
 public static class ProductoMapeos
 {
     public static ProductoResponse ToResponse(this Producto p) =>
         new(p.Id, p.Codigo, p.Nombre, p.Descripcion, p.PrecioVenta,
-            p.Stock, p.StockMinimo, p.Categoria, p.Activo);
+            p.Stock, p.StockMinimo, p.CategoriaId, p.Categoria!.Nombre, p.Activo);
     public static Producto ToEntidad(this CrearProductoRequest req) => new()
     {
         Codigo = req.Codigo.Trim().ToUpperInvariant(),
@@ -42,7 +42,7 @@ public static class ProductoMapeos
         PrecioVenta = req.PrecioVenta,
         Stock = req.Stock,
         StockMinimo = req.StockMinimo,
-        Categoria = req.Categoria.Trim()
+        CategoriaId = req.CategoriaId
     };
     public static void AplicarCambios(this Producto p, ActualizarProductoRequest req)
     {
@@ -51,13 +51,13 @@ public static class ProductoMapeos
         p.PrecioVenta = req.PrecioVenta;
         p.Stock = req.Stock;
         p.StockMinimo = req.StockMinimo;
-        p.Categoria = req.Categoria.Trim();
+        p.CategoriaId = req.CategoriaId;
     }
 }
 
 public record ActualizarProductoRequest(
     string Nombre, string? Descripcion, decimal PrecioVenta,
-    int Stock, int StockMinimo, string Categoria)
+    int Stock, int StockMinimo, int CategoriaId)
 {
     public Dictionary<string, string[]> Validar()
     {
@@ -71,8 +71,8 @@ public record ActualizarProductoRequest(
             errores["stock"] = ["El stock no puede ser negativo."];
         if (StockMinimo < 0)
             errores["stockMinimo"] = ["El stock mínimo no puede ser negativo."];
-        if (string.IsNullOrWhiteSpace(Categoria))
-            errores["categoria"] = ["La categoría es obligatoria."];
+        if (CategoriaId <= 0)
+            errores["categoriaId"] = ["La categoría es obligatoria."];
 
         return errores;
     }
