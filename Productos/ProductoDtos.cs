@@ -27,13 +27,13 @@ int Stock, int StockMinimo, int CategoriaId)
 }
 public record ProductoResponse(
     int Id, string Codigo, string Nombre, string? Descripcion, decimal PrecioVenta,
-    int Stock, int StockMinimo, int CategoriaId, bool Activo);
+    int Stock, int StockMinimo, int CategoriaId, string CategoriaNombre, bool Activo);
 
 public static class ProductoMapeos
 {
     public static ProductoResponse ToResponse(this Producto p) =>
         new(p.Id, p.Codigo, p.Nombre, p.Descripcion, p.PrecioVenta,
-            p.Stock, p.StockMinimo, p.CategoriaId, p.Activo);
+            p.Stock, p.StockMinimo, p.CategoriaId, p.Categoria!.Nombre, p.Activo);
     public static Producto ToEntidad(this CrearProductoRequest req) => new()
     {
         Codigo = req.Codigo.Trim().ToUpperInvariant(),

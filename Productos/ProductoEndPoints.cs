@@ -22,7 +22,10 @@ public static class ProductoEndpoints
     private static async Task<Ok<List<ProductoResponse>>> ObtenerTodos(
     FerreDbContext db, string? busqueda, int? categoriaId)
     {
-        var query = db.Productos.AsNoTracking().Where(p => p.Activo);
+        var query = db.Productos
+            .Include(p => p.Categoria)
+            .AsNoTracking()
+            .Where(p => p.Activo);
 
         if (!string.IsNullOrWhiteSpace(busqueda))
             query = query.Where(p =>
@@ -39,7 +42,10 @@ public static class ProductoEndpoints
     private static async Task<Results<Ok<ProductoResponse>, NotFound>> ObtenerPorId(
         int id, FerreDbContext db)
     {
-        var producto = await db.Productos.FindAsync(id);
+        var producto = await db.Productos
+            .Include(p => p.Categoria)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
         if (producto is null)
             return TypedResults.NotFound();
 
@@ -52,7 +58,15 @@ public static class ProductoEndpoints
         if (errores.Count > 0)
             return TypedResults.ValidationProblem(errores);
 
+        var categoria = await db.Categorias.FindAsync(req.CategoriaId);
+        if (categoria is null)
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["categoriaId"] = ["La categoría indicada no existe."]
+            });
+
         var producto = req.ToEntidad();
+        producto.Categoria = categoria;
 
         if (await db.Productos.AnyAsync(p => p.Codigo == producto.Codigo))
             return CodigoDuplicado(producto.Codigo);
@@ -81,6 +95,13 @@ public static class ProductoEndpoints
         var errores = req.Validar();
         if (errores.Count > 0)
             return TypedResults.ValidationProblem(errores);
+
+        var categoria = await db.Categorias.FindAsync(req.CategoriaId);
+        if (categoria is null)
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["categoriaId"] = ["La categoría indicada no existe."]
+            });
 
         var producto = await db.Productos.FindAsync(id);
         if (producto is null)
