@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Http.HttpResults;
+﻿using FerreAPI.Data;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace FerreAPI.Productos;
 
@@ -16,68 +19,88 @@ public static class ProductoEndpoints
 
         return app;
     }
-    private static Ok<List<ProductoResponse>> ObtenerTodos(
-    ProductoStore store, string? busqueda, string? categoria)
+    private static async Task<Ok<List<ProductoResponse>>> ObtenerTodos(
+    FerreDbContext db, string? busqueda, string? categoria)
     {
-        var productos = store.ObtenerTodos().Where(p => p.Activo);
+        var query = db.Productos.AsNoTracking().Where(p => p.Activo);
 
         if (!string.IsNullOrWhiteSpace(busqueda))
-            productos = productos.Where(p =>
-                p.Nombre.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
-                p.Codigo.Contains(busqueda, StringComparison.OrdinalIgnoreCase));
+            query = query.Where(p =>
+                EF.Functions.ILike(p.Nombre, $"%{busqueda}%") ||
+                EF.Functions.ILike(p.Codigo, $"%{busqueda}%"));
 
         if (!string.IsNullOrWhiteSpace(categoria))
-            productos = productos.Where(p =>
-                p.Categoria.Equals(categoria, StringComparison.OrdinalIgnoreCase));
+            query = query.Where(p => p.Categoria.ToLower() == categoria.ToLower());
 
+        var productos = await query.ToListAsync();
         return TypedResults.Ok(productos.Select(p => p.ToResponse()).ToList());
     }
 
-    private static Results<Ok<ProductoResponse>, NotFound> ObtenerPorId(int id, ProductoStore store)
+    private static async Task<Results<Ok<ProductoResponse>, NotFound>> ObtenerPorId(
+        int id, FerreDbContext db)
     {
-        var producto = store.ObtenerPorId(id);
-
+        var producto = await db.Productos.FindAsync(id);
         if (producto is null)
             return TypedResults.NotFound();
 
         return TypedResults.Ok(producto.ToResponse());
     }
-    private static Results<Created<ProductoResponse>, ValidationProblem, ProblemHttpResult> CrearProducto(
-    CrearProductoRequest req, ProductoStore store)
+    private static async Task<Results<Created<ProductoResponse>, ValidationProblem, ProblemHttpResult>> CrearProducto(
+    CrearProductoRequest req, FerreDbContext db)
     {
         var errores = req.Validar();
         if (errores.Count > 0)
             return TypedResults.ValidationProblem(errores);
 
-        // TODO: race condition, se resuelve con índice único en la semana 4
-        if (store.ExisteCodigo(req.Codigo))
-            return TypedResults.Problem(
-                title: "Código duplicado",
-                detail: $"Ya existe un producto con el código '{req.Codigo}'.",
-                statusCode: StatusCodes.Status409Conflict);
+        var producto = req.ToEntidad();
 
-        var producto = store.Agregar(req.ToEntidad());
+        if (await db.Productos.AnyAsync(p => p.Codigo == producto.Codigo))
+            return CodigoDuplicado(producto.Codigo);
+
+        db.Productos.Add(producto);
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            return CodigoDuplicado(producto.Codigo);
+        }
+
         return TypedResults.Created($"/api/productos/{producto.Id}", producto.ToResponse());
     }
-    private static Results<NoContent, ValidationProblem, NotFound> ActualizarProducto(
-        int id, ActualizarProductoRequest req, ProductoStore store)
+
+    private static ProblemHttpResult CodigoDuplicado(string codigo) =>
+        TypedResults.Problem(
+            title: "Código duplicado",
+            detail: $"Ya existe un producto con el código '{codigo}'.",
+            statusCode: StatusCodes.Status409Conflict);
+    private static async Task<Results<NoContent, ValidationProblem, NotFound>> ActualizarProducto(
+        int id, ActualizarProductoRequest req, FerreDbContext db)
     {
         var errores = req.Validar();
         if (errores.Count > 0)
             return TypedResults.ValidationProblem(errores);
-        var producto = store.ObtenerPorId(id);
+
+        var producto = await db.Productos.FindAsync(id);
         if (producto is null)
             return TypedResults.NotFound();
+
         producto.AplicarCambios(req);
+        await db.SaveChangesAsync();
+
         return TypedResults.NoContent();
     }
-    private static Results<NoContent, NotFound> EliminarProducto(int id, ProductoStore store)
+    private static async Task<Results<NoContent, NotFound>> EliminarProducto(int id, FerreDbContext db)
     {
-        var producto = store.ObtenerPorId(id);
+        var producto = await db.Productos.FindAsync(id);
 
         if (producto is null)
             return TypedResults.NotFound();
+
         producto.Desactivar();
+        await db.SaveChangesAsync();
+
         return TypedResults.NoContent();
     }
 }

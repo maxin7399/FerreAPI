@@ -5,7 +5,6 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
-builder.Services.AddSingleton<ProductoStore>();
 builder.Services.AddDbContext<FerreDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("FerreApi")));
 
