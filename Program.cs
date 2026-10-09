@@ -1,3 +1,4 @@
+using FerreAPI.Categorias;
 using FerreAPI.Data;
 using FerreAPI.Productos;
 using Microsoft.EntityFrameworkCore;
@@ -12,4 +13,5 @@ var app = builder.Build();
 app.MapOpenApi();
 app.MapScalarApiReference();   // UI en /scalar
 app.MapProductos();            // extension method que tú vas a crear
+app.MapCategorias();
 app.Run();

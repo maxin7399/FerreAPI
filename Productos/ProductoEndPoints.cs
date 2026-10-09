@@ -20,7 +20,7 @@ public static class ProductoEndpoints
         return app;
     }
     private static async Task<Ok<List<ProductoResponse>>> ObtenerTodos(
-    FerreDbContext db, string? busqueda, string? categoria)
+    FerreDbContext db, string? busqueda, int? categoriaId)
     {
         var query = db.Productos.AsNoTracking().Where(p => p.Activo);
 
@@ -29,8 +29,8 @@ public static class ProductoEndpoints
                 EF.Functions.ILike(p.Nombre, $"%{busqueda}%") ||
                 EF.Functions.ILike(p.Codigo, $"%{busqueda}%"));
 
-        if (!string.IsNullOrWhiteSpace(categoria))
-            query = query.Where(p => p.Categoria.ToLower() == categoria.ToLower());
+        if (categoriaId is not null)
+            query = query.Where(p => p.CategoriaId == categoriaId);
 
         var productos = await query.ToListAsync();
         return TypedResults.Ok(productos.Select(p => p.ToResponse()).ToList());
