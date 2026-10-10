@@ -20,6 +20,7 @@ public class FerreDbContext(DbContextOptions<FerreDbContext> options) : DbContex
             p.Property(x => x.Nombre).HasMaxLength(150);
             p.Property(x => x.Descripcion).HasMaxLength(500);
             p.Property(x => x.PrecioVenta).HasPrecision(12, 2);
+            p.Property(x => x.Version).IsRowVersion();
         });
 
         modelBuilder.Entity<Categoria>(c =>

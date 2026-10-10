@@ -15,6 +15,7 @@ public class Producto
     public Categoria? Categoria { get; set; }
     public bool Activo { get; set; } = true;
     public void Desactivar() => Activo = false;
+    public uint Version { get; private set; }
 
     public void AumentarStock(int cantidad)
     {
