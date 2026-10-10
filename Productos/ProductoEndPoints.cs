@@ -1,4 +1,5 @@
-﻿using FerreAPI.Data;
+﻿using FerreAPI.Comun;
+using FerreAPI.Data;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -19,9 +20,17 @@ public static class ProductoEndpoints
 
         return app;
     }
-    private static async Task<Ok<List<ProductoResponse>>> ObtenerTodos(
-    FerreDbContext db, string? busqueda, int? categoriaId)
+    private static async Task<Results<Ok<PaginaResponse<ProductoResponse>>, ValidationProblem>> ObtenerTodos(
+    FerreDbContext db, string? busqueda, int? categoriaId, int pagina = 1, int tamanio = 20)
     {
+        var errores = new Dictionary<string, string[]>();
+        if (pagina < 1)
+            errores["pagina"] = ["La página debe ser mayor o igual a 1."];
+        if (tamanio < 1 || tamanio > 100)
+            errores["tamanio"] = ["El tamaño debe estar entre 1 y 100."];
+        if (errores.Count > 0)
+            return TypedResults.ValidationProblem(errores);
+
         var query = db.Productos
             .Include(p => p.Categoria)
             .AsNoTracking()
@@ -35,8 +44,17 @@ public static class ProductoEndpoints
         if (categoriaId is not null)
             query = query.Where(p => p.CategoriaId == categoriaId);
 
-        var productos = await query.ToListAsync();
-        return TypedResults.Ok(productos.Select(p => p.ToResponse()).ToList());
+        var total = await query.CountAsync();
+
+        var productos = await query
+            .OrderBy(p => p.Nombre)
+            .ThenBy(p => p.Id)
+            .Skip((pagina - 1) * tamanio)
+            .Take(tamanio)
+            .ToListAsync();
+
+        var items = productos.Select(p => p.ToResponse()).ToList();
+        return TypedResults.Ok(new PaginaResponse<ProductoResponse>(items, pagina, tamanio, total));
     }
 
     private static async Task<Results<Ok<ProductoResponse>, NotFound>> ObtenerPorId(
