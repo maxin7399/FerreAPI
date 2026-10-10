@@ -1,6 +1,7 @@
 ﻿using FerreAPI.Categorias;
 using FerreAPI.Facturas;
 using FerreAPI.Productos;
+using FerreAPI.Usuarios;
 using Microsoft.EntityFrameworkCore;
 
 namespace FerreAPI.Data;
@@ -10,6 +11,7 @@ public class FerreDbContext(DbContextOptions<FerreDbContext> options) : DbContex
     public DbSet<Producto> Productos => Set<Producto>();
     public DbSet<Categoria> Categorias => Set<Categoria>();
     public DbSet<Factura> Facturas => Set<Factura>();
+    public DbSet<Usuario> Usuarios => Set<Usuario>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -60,6 +62,14 @@ public class FerreDbContext(DbContextOptions<FerreDbContext> options) : DbContex
                 .WithMany()
                 .HasForeignKey(x => x.ProductoId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+        
+        modelBuilder.Entity<Usuario>(u =>
+        {
+            u.HasIndex(x => x.Email).IsUnique();
+            u.Property(x => x.Email).HasMaxLength(150);
+            u.Property(x => x.Nombre).HasMaxLength(100);
+            u.Property(x => x.Rol).HasConversion<string>().HasMaxLength(20);
         });
     }
 }
