@@ -1,12 +1,16 @@
+using FerreAPI.Auth;
 using FerreAPI.Categorias;
 using FerreAPI.Comun;
 using FerreAPI.Data;
 using FerreAPI.Facturas;
 using FerreAPI.Productos;
 using FerreAPI.Usuarios;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
@@ -15,14 +19,43 @@ builder.Services.AddDbContext<FerreDbContext>(options =>
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ManejadorGlobalExcepciones>();
 builder.Services.AddSingleton<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
+builder.Services.Configure<JwtOpciones>(builder.Configuration.GetSection("Jwt"));
+builder.Services.AddSingleton<GeneradorTokens>();
+
+var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOpciones>()!;
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwt.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwt.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Clave)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30),
+            NameClaimType = "name",
+            RoleClaimType = "role"
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapOpenApi();
 app.MapScalarApiReference();
 app.MapProductos();
 app.MapCategorias();
 app.MapFacturas();
+app.MapAuth();
 await app.CrearAdministradorInicialAsync();
 app.Run();
