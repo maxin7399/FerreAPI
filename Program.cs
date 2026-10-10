@@ -1,5 +1,6 @@
 using FerreAPI.Categorias;
 using FerreAPI.Data;
+using FerreAPI.Facturas;
 using FerreAPI.Productos;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
@@ -11,7 +12,8 @@ builder.Services.AddDbContext<FerreDbContext>(options =>
 
 var app = builder.Build();
 app.MapOpenApi();
-app.MapScalarApiReference();   // UI en /scalar
-app.MapProductos();            // extension method que tú vas a crear
+app.MapScalarApiReference();
+app.MapProductos();
 app.MapCategorias();
+app.MapFacturas();
 app.Run();
