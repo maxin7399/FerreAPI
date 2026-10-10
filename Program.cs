@@ -6,6 +6,7 @@ using FerreAPI.Facturas;
 using FerreAPI.Productos;
 using FerreAPI.Usuarios;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -44,15 +45,22 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(Politicas.Personal, p =>
+        p.RequireRole(nameof(Rol.Vendedor), nameof(Rol.Administrador)))
+    .AddPolicy(Politicas.SoloAdministrador, p =>
+        p.RequireRole(nameof(Rol.Administrador)))
+    .SetFallbackPolicy(new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build());
 
 var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapOpenApi();
-app.MapScalarApiReference();
+app.MapOpenApi().AllowAnonymous();
+app.MapScalarApiReference().AllowAnonymous();
 app.MapProductos();
 app.MapCategorias();
 app.MapFacturas();

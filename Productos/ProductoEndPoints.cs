@@ -1,4 +1,5 @@
-﻿using FerreAPI.Comun;
+﻿using FerreAPI.Auth;
+using FerreAPI.Comun;
 using FerreAPI.Data;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
@@ -10,13 +11,15 @@ public static class ProductoEndpoints
 {
     public static IEndpointRouteBuilder MapProductos(this IEndpointRouteBuilder app)
     {
-        var grupo = app.MapGroup("/api/productos").WithTags("Productos");
+        var grupo = app.MapGroup("/api/productos")
+            .WithTags("Productos")
+            .RequireAuthorization(Politicas.Personal);
 
         grupo.MapGet("/", ObtenerTodos);
         grupo.MapGet("/{id:int}", ObtenerPorId);
-        grupo.MapPost("/", CrearProducto);
-        grupo.MapPut("/{id:int}", ActualizarProducto);
-        grupo.MapDelete("/{id:int}", EliminarProducto);
+        grupo.MapPost("/", CrearProducto).RequireAuthorization(Politicas.SoloAdministrador);
+        grupo.MapPut("/{id:int}", ActualizarProducto).RequireAuthorization(Politicas.SoloAdministrador);
+        grupo.MapDelete("/{id:int}", EliminarProducto).RequireAuthorization(Politicas.SoloAdministrador);
 
         return app;
     }

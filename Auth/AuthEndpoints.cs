@@ -12,7 +12,7 @@ public static class AuthEndpoints
     {
         var grupo = app.MapGroup("/api/auth").WithTags("Autenticación");
 
-        grupo.MapPost("/login", Login);
+        grupo.MapPost("/login", Login).AllowAnonymous();
 
         return app;
     }
