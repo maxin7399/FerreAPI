@@ -36,6 +36,8 @@ public record FacturaLineaResponse(
 public record FacturaResponse(
     int Id, DateTime Fecha, decimal Subtotal, decimal Iva, decimal Total,
     List<FacturaLineaResponse> Lineas);
+public record FacturaResumenResponse(
+    int Id, DateTime Fecha, decimal Subtotal, decimal Iva, decimal Total, int CantidadLineas);
 
 public static class FacturaMapeos
 {

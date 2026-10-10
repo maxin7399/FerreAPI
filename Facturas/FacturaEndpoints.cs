@@ -1,4 +1,5 @@
-﻿using FerreAPI.Data;
+﻿using FerreAPI.Comun;
+using FerreAPI.Data;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,12 +11,55 @@ public static class FacturaEndpoints
     {
         var grupo = app.MapGroup("/api/facturas").WithTags("Facturas");
 
+        grupo.MapGet("/", ObtenerTodas);
+        grupo.MapGet("/{id:int}", ObtenerPorId);
         grupo.MapPost("/", CrearFactura);
 
         return app;
     }
+
+    private static async Task<Results<Ok<PaginaResponse<FacturaResumenResponse>>, ValidationProblem>> ObtenerTodas(
+        FerreDbContext db, int pagina = 1, int tamanio = 20)
+    {
+        var errores = new Dictionary<string, string[]>();
+        if (pagina < 1)
+            errores["pagina"] = ["La página debe ser mayor o igual a 1."];
+        if (tamanio < 1 || tamanio > 100)
+            errores["tamanio"] = ["El tamaño debe estar entre 1 y 100."];
+        if (errores.Count > 0)
+            return TypedResults.ValidationProblem(errores);
+
+        var total = await db.Facturas.CountAsync();
+
+        var items = await db.Facturas
+            .OrderByDescending(f => f.Fecha)
+            .ThenByDescending(f => f.Id)
+            .Skip((pagina - 1) * tamanio)
+            .Take(tamanio)
+            .Select(f => new FacturaResumenResponse(
+                f.Id, f.Fecha, f.Subtotal, f.Iva, f.Total, f.Lineas.Count))
+            .ToListAsync();
+
+        return TypedResults.Ok(new PaginaResponse<FacturaResumenResponse>(items, pagina, tamanio, total));
+    }
+
+    private static async Task<Results<Ok<FacturaResponse>, NotFound>> ObtenerPorId(
+        int id, FerreDbContext db)
+    {
+        var factura = await db.Facturas
+            .AsNoTracking()
+            .Include(f => f.Lineas)
+                .ThenInclude(l => l.Producto)
+            .FirstOrDefaultAsync(f => f.Id == id);
+
+        if (factura is null)
+            return TypedResults.NotFound();
+
+        return TypedResults.Ok(factura.ToResponse());
+    }
+
     private static async Task<Results<Created<FacturaResponse>, ValidationProblem, ProblemHttpResult>> CrearFactura(
-    CrearFacturaRequest req, FerreDbContext db)
+        CrearFacturaRequest req, FerreDbContext db)
     {
         // 1. Validar la petición
         var errores = req.Validar();
@@ -61,6 +105,4 @@ public static class FacturaEndpoints
 
         return TypedResults.Created($"/api/facturas/{factura.Id}", factura.ToResponse());
     }
-
 }
-
