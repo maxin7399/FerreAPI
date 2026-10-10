@@ -65,5 +65,6 @@ app.MapProductos();
 app.MapCategorias();
 app.MapFacturas();
 app.MapAuth();
+app.MapUsuarios();
 await app.CrearAdministradorInicialAsync();
 app.Run();

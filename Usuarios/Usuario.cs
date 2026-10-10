@@ -19,4 +19,5 @@ public class Usuario
     }
 
     public void EstablecerPasswordHash(string hash) => PasswordHash = hash;
+    public void Desactivar() => Activo = false;
 }
