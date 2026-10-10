@@ -1,4 +1,5 @@
-﻿using FerreAPI.Productos;
+﻿using FerreAPI.Comun;
+using FerreAPI.Productos;
 
 namespace FerreAPI.Facturas;
 
@@ -18,7 +19,7 @@ public class Factura
     public void AgregarLinea(Producto producto, int cantidad)
     {
         if (!producto.Activo)
-            throw new InvalidOperationException($"El producto '{producto.Nombre}' no está disponible para la venta.");
+            throw new ReglaNegocioException($"El producto '{producto.Nombre}' no está disponible para la venta.");
 
         producto.DescontarStock(cantidad);
 

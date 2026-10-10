@@ -1,4 +1,5 @@
 ﻿using FerreAPI.Categorias;
+using FerreAPI.Comun;
 
 namespace FerreAPI.Productos;
 
@@ -29,7 +30,7 @@ public class Producto
         if (cantidad <= 0)
             throw new ArgumentOutOfRangeException(nameof(cantidad), "La cantidad debe ser positiva.");
         if (cantidad > Stock)
-            throw new InvalidOperationException($"Stock insuficiente para '{Nombre}'. Disponible: {Stock}.");
+            throw new ReglaNegocioException($"Stock insuficiente para '{Nombre}'. Disponible: {Stock}.");
         Stock -= cantidad;
     }
 }
