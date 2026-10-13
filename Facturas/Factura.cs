@@ -1,5 +1,6 @@
 ﻿using FerreAPI.Comun;
 using FerreAPI.Productos;
+using FerreAPI.Usuarios;
 
 namespace FerreAPI.Facturas;
 
@@ -15,6 +16,9 @@ public class Factura
     public decimal Iva { get; private set; }
     public decimal Total { get; private set; }
     public IReadOnlyCollection<FacturaLinea> Lineas => _lineas;
+    public int UsuarioId { get; private set; }
+    public Usuario? Usuario { get; private set; }
+    private Factura() { }
 
     public void AgregarLinea(Producto producto, int cantidad)
     {
@@ -29,5 +33,9 @@ public class Factura
         Subtotal += linea.Subtotal;
         Iva += linea.Iva;
         Total = Subtotal + Iva;
+    }
+    public Factura(int usuarioId)
+    {
+        UsuarioId = usuarioId;
     }
 }

@@ -49,6 +49,10 @@ public class FerreDbContext(DbContextOptions<FerreDbContext> options) : DbContex
                 .OnDelete(DeleteBehavior.Cascade);
 
             f.Navigation(x => x.Lineas).UsePropertyAccessMode(PropertyAccessMode.Field);
+            f.HasOne(x => x.Usuario)
+                .WithMany()
+                .HasForeignKey(x => x.UsuarioId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<FacturaLinea>(l =>
