@@ -1,7 +1,11 @@
-﻿using FerreAPI.Comun;
+﻿using FerreAPI.Auth;
+using FerreAPI.Comun;
 using FerreAPI.Data;
+using FerreAPI.Usuarios;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace FerreAPI.Facturas;
 
@@ -19,7 +23,7 @@ public static class FacturaEndpoints
     }
 
     private static async Task<Results<Ok<PaginaResponse<FacturaResumenResponse>>, ValidationProblem>> ObtenerTodas(
-        FerreDbContext db, int pagina = 1, int tamanio = 20)
+    ClaimsPrincipal usuarioActual, FerreDbContext db, int pagina = 1, int tamanio = 20)
     {
         var errores = new Dictionary<string, string[]>();
         if (pagina < 1)
@@ -29,29 +33,46 @@ public static class FacturaEndpoints
         if (errores.Count > 0)
             return TypedResults.ValidationProblem(errores);
 
-        var total = await db.Facturas.CountAsync();
+        var query = db.Facturas.AsQueryable();
 
-        var items = await db.Facturas
+        if (!usuarioActual.IsInRole(nameof(Rol.Administrador)))
+        {
+            var usuarioId = usuarioActual.ObtenerUsuarioId();
+            query = query.Where(f => f.UsuarioId == usuarioId);
+        }
+
+        var total = await query.CountAsync();
+
+        var items = await query
             .OrderByDescending(f => f.Fecha)
             .ThenByDescending(f => f.Id)
             .Skip((pagina - 1) * tamanio)
             .Take(tamanio)
             .Select(f => new FacturaResumenResponse(
-                f.Id, f.Fecha, f.Subtotal, f.Iva, f.Total, f.Lineas.Count))
+                f.Id, f.Fecha, f.Usuario!.Nombre,
+                f.Subtotal, f.Iva, f.Total, f.Lineas.Count))
             .ToListAsync();
 
         return TypedResults.Ok(new PaginaResponse<FacturaResumenResponse>(items, pagina, tamanio, total));
     }
 
     private static async Task<Results<Ok<FacturaResponse>, NotFound>> ObtenerPorId(
-        int id, FerreDbContext db)
+    int id, ClaimsPrincipal usuarioActual, FerreDbContext db)
     {
-        var factura = await db.Facturas
+        var query = db.Facturas
             .AsNoTracking()
+            .Include(f => f.Usuario)
             .Include(f => f.Lineas)
                 .ThenInclude(l => l.Producto)
-            .FirstOrDefaultAsync(f => f.Id == id);
+            .Where(f => f.Id == id);
 
+        if (!usuarioActual.IsInRole(nameof(Rol.Administrador)))
+        {
+            var usuarioId = usuarioActual.ObtenerUsuarioId();
+            query = query.Where(f => f.UsuarioId == usuarioId);
+        }
+
+        var factura = await query.FirstOrDefaultAsync();
         if (factura is null)
             return TypedResults.NotFound();
 
@@ -59,7 +80,7 @@ public static class FacturaEndpoints
     }
 
     private static async Task<Results<Created<FacturaResponse>, ValidationProblem, ProblemHttpResult>> CrearFactura(
-        CrearFacturaRequest req, FerreDbContext db)
+        CrearFacturaRequest req, ClaimsPrincipal usuarioActual, FerreDbContext db)
     {
         // 1. Validar la petición
         var errores = req.Validar();
@@ -85,11 +106,10 @@ public static class FacturaEndpoints
             return TypedResults.ValidationProblem(errores);
 
         // 4. Armar la factura: cada línea descuenta stock y suma totales
-        var factura = new Factura();
+        var factura = new Factura(usuarioActual.ObtenerUsuarioId());
         foreach (var linea in req.Lineas)
             factura.AgregarLinea(productos[linea.ProductoId], linea.Cantidad);
 
-        // 5. Guardar todo en una sola transacción
         db.Facturas.Add(factura);
         try
         {
@@ -102,6 +122,8 @@ public static class FacturaEndpoints
                 detail: "El stock de uno o más productos cambió mientras se procesaba la venta. Intente de nuevo.",
                 statusCode: StatusCodes.Status409Conflict);
         }
+
+        await db.Entry(factura).Reference(f => f.Usuario).LoadAsync();
 
         return TypedResults.Created($"/api/facturas/{factura.Id}", factura.ToResponse());
     }

@@ -66,7 +66,12 @@ namespace FerreAPI.Migrations
                         .HasPrecision(14, 2)
                         .HasColumnType("numeric(14,2)");
 
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
 
                     b.ToTable("Facturas");
                 });
@@ -151,6 +156,12 @@ namespace FerreAPI.Migrations
                     b.Property<int>("StockMinimo")
                         .HasColumnType("integer");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CategoriaId");
@@ -159,6 +170,55 @@ namespace FerreAPI.Migrations
                         .IsUnique();
 
                     b.ToTable("Productos");
+                });
+
+            modelBuilder.Entity("FerreAPI.Usuarios.Usuario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Rol")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.ToTable("Usuarios");
+                });
+
+            modelBuilder.Entity("FerreAPI.Facturas.Factura", b =>
+                {
+                    b.HasOne("FerreAPI.Usuarios.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("FerreAPI.Facturas.FacturaLinea", b =>

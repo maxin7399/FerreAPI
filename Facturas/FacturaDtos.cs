@@ -34,15 +34,20 @@ public record FacturaLineaResponse(
     decimal PrecioUnitario, decimal PorcentajeIva, decimal Subtotal, decimal Iva);
 
 public record FacturaResponse(
-    int Id, DateTime Fecha, decimal Subtotal, decimal Iva, decimal Total,
+    int Id, DateTime Fecha, int VendedorId, string VendedorNombre,
+    decimal Subtotal, decimal Iva, decimal Total,
     List<FacturaLineaResponse> Lineas);
+
 public record FacturaResumenResponse(
-    int Id, DateTime Fecha, decimal Subtotal, decimal Iva, decimal Total, int CantidadLineas);
+    int Id, DateTime Fecha, string VendedorNombre,
+    decimal Subtotal, decimal Iva, decimal Total, int CantidadLineas);
+
 
 public static class FacturaMapeos
 {
     public static FacturaResponse ToResponse(this Factura f) =>
-        new(f.Id, f.Fecha, f.Subtotal, f.Iva, f.Total,
+        new(f.Id, f.Fecha, f.UsuarioId, f.Usuario!.Nombre,
+            f.Subtotal, f.Iva, f.Total,
             f.Lineas.Select(l => new FacturaLineaResponse(
                 l.ProductoId, l.Producto!.Nombre, l.Cantidad,
                 l.PrecioUnitario, l.PorcentajeIva, l.Subtotal, l.Iva)).ToList());
