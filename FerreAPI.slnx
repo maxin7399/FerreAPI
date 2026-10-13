@@ -1,3 +1,6 @@
 <Solution>
-  <Project Path="FerreAPI.csproj" />
+  <Folder Name="/tests/">
+    <Project Path="tests/FerreAPI.Tests/FerreAPI.Tests.csproj" />
+  </Folder>
+  <Project Path="src/FerreAPI/FerreAPI.csproj" />
 </Solution>
