@@ -68,3 +68,5 @@ app.MapAuth();
 app.MapUsuarios();
 await app.CrearAdministradorInicialAsync();
 app.Run();
+
+public partial class Program { }

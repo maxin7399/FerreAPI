@@ -32,7 +32,7 @@ public sealed class ManejadorGlobalExcepciones(
         else
             logger.LogWarning("Regla de negocio: {Mensaje}", exception.Message);
 
-        httpContext.Response.StatusCode = problema.Status.Value;
+        httpContext.Response.StatusCode = problema.Status ?? StatusCodes.Status500InternalServerError;
         return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,
