@@ -1,0 +1,185 @@
+# FerreAPI
+
+API REST para la gestión de inventario y facturación de una ferretería, construida con **ASP.NET Core (.NET 10)**, **Entity Framework Core** y **PostgreSQL**.
+
+Permite administrar el catálogo de productos y categorías, registrar ventas con cálculo de IVA y descuento automático de inventario, y controlar el acceso por roles mediante JWT. El foco del proyecto está en modelar reglas de negocio reales y en garantizar la consistencia de los datos, incluso ante ventas simultáneas.
+
+## Funcionalidades
+
+- **Catálogo:** productos y categorías con búsqueda, filtros y paginación.
+- **Facturación:** ventas de varias líneas con cálculo de subtotal, IVA (19 %) y total; el inventario se descuenta de forma atómica.
+- **Control de inventario:** el stock nunca puede quedar negativo, ni siquiera con ventas concurrentes.
+- **Autenticación y autorización:** login con JWT y dos roles, `Administrador` y `Vendedor`.
+- **Trazabilidad:** cada factura registra el usuario que la emitió; un vendedor solo puede consultar sus propias ventas.
+- **Errores consistentes:** todas las respuestas de error siguen el estándar ProblemDetails (RFC 9457).
+
+## Stack
+
+| Área | Tecnología |
+|---|---|
+| Framework | ASP.NET Core 10 · Minimal APIs |
+| Persistencia | Entity Framework Core 10 · PostgreSQL (Npgsql) |
+| Seguridad | JWT Bearer · `PasswordHasher` (PBKDF2 con sal) · políticas de autorización por rol |
+| Documentación | OpenAPI · Scalar |
+| Pruebas | xUnit · `WebApplicationFactory` · Testcontainers |
+
+## Modelo de datos
+
+```mermaid
+erDiagram
+    CATEGORIA ||--o{ PRODUCTO : agrupa
+    PRODUCTO ||--o{ FACTURA_LINEA : "se vende en"
+    FACTURA ||--|{ FACTURA_LINEA : contiene
+    USUARIO ||--o{ FACTURA : emite
+
+    CATEGORIA {
+        int Id PK
+        string Nombre UK
+    }
+    PRODUCTO {
+        int Id PK
+        string Codigo UK
+        string Nombre
+        string Descripcion
+        decimal PrecioVenta
+        int Stock
+        int StockMinimo
+        int CategoriaId FK
+        bool Activo
+        uint Version "xmin, concurrencia"
+    }
+    FACTURA {
+        int Id PK
+        datetime Fecha "UTC"
+        int UsuarioId FK
+        decimal Subtotal
+        decimal Iva
+        decimal Total
+    }
+    FACTURA_LINEA {
+        int Id PK
+        int FacturaId FK
+        int ProductoId FK
+        int Cantidad
+        decimal PrecioUnitario "snapshot"
+        decimal PorcentajeIva
+        decimal Subtotal
+        decimal Iva
+    }
+    USUARIO {
+        int Id PK
+        string Email UK
+        string Nombre
+        string PasswordHash
+        string Rol
+        bool Activo
+    }
+```
+
+## Decisiones de diseño
+
+**Reglas de negocio en el dominio.** El stock solo se modifica mediante `DescontarStock` y `AumentarStock`, que validan la operación. La factura se comporta como un agregado: la única forma de agregarle una línea es `AgregarLinea`, que valida el producto, descuenta el stock, toma el precio vigente y recalcula los totales en un solo paso. Desde fuera es imposible construir una factura con totales inconsistentes.
+
+**Snapshot de precios.** Cada línea guarda el precio unitario y el porcentaje de IVA vigentes al momento de la venta. Si un producto cambia de precio, las facturas emitidas no se alteran.
+
+**Concurrencia optimista.** Los productos usan la columna de sistema `xmin` de PostgreSQL como token de concurrencia. Si dos ventas intentan descontar el mismo stock al mismo tiempo, una se confirma y la otra se rechaza con `409 Conflict`. La factura, sus líneas y la actualización del inventario se guardan en una única transacción.
+
+**Unicidad garantizada por la base de datos.** Los códigos de producto, los nombres de categoría y los emails de usuario tienen índices únicos. La API verifica duplicados antes de insertar, pero la garantía real la da el índice, que cubre también las peticiones simultáneas.
+
+**Borrado lógico.** Productos y usuarios no se eliminan físicamente, se desactivan. Así se conserva la integridad del historial de facturas.
+
+**Redondeo contable.** El IVA se redondea con `MidpointRounding.AwayFromZero` (0,285 → 0,29), en lugar del redondeo bancario que .NET aplica por defecto.
+
+**Seguridad por defecto.** Una política de autorización de respaldo exige autenticación en todo endpoint que no declare otra regla; lo público se abre de forma explícita. El login devuelve el mismo mensaje ante cualquier fallo para evitar la enumeración de usuarios, y una factura ajena responde `404` en lugar de `403` para no revelar su existencia.
+
+**Rendimiento.** La facturación carga todos los productos en una sola consulta (sin N+1), las consultas de solo lectura usan `AsNoTracking` y el listado de facturas usa proyecciones para traer únicamente las columnas necesarias.
+
+## Endpoints
+
+| Método | Ruta | Descripción | Acceso |
+|---|---|---|---|
+| `POST` | `/api/auth/login` | Inicia sesión y devuelve un JWT | Público |
+| `GET` | `/api/productos` | Lista productos (`busqueda`, `categoriaId`, `pagina`, `tamanio`) | Vendedor, Administrador |
+| `GET` | `/api/productos/{id}` | Consulta un producto | Vendedor, Administrador |
+| `POST` | `/api/productos` | Crea un producto | Administrador |
+| `PUT` | `/api/productos/{id}` | Actualiza un producto | Administrador |
+| `DELETE` | `/api/productos/{id}` | Desactiva un producto | Administrador |
+| `GET` | `/api/categorias` | Lista categorías | Vendedor, Administrador |
+| `GET` | `/api/categorias/{id}` | Consulta una categoría | Vendedor, Administrador |
+| `POST` | `/api/categorias` | Crea una categoría | Administrador |
+| `GET` | `/api/facturas` | Lista facturas paginadas (el vendedor ve solo las suyas) | Vendedor, Administrador |
+| `GET` | `/api/facturas/{id}` | Consulta una factura con sus líneas | Vendedor, Administrador |
+| `POST` | `/api/facturas` | Registra una venta | Vendedor, Administrador |
+| `GET` | `/api/usuarios` | Lista usuarios | Administrador |
+| `POST` | `/api/usuarios` | Crea un usuario | Administrador |
+| `DELETE` | `/api/usuarios/{id}` | Desactiva un usuario | Administrador |
+
+En entorno de desarrollo, la documentación interactiva está disponible en `/scalar`.
+
+## Ejecución local
+
+### Requisitos
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- PostgreSQL
+- [Docker](https://www.docker.com/) (solo para las pruebas de integración)
+- Herramienta de EF Core: `dotnet tool install --global dotnet-ef`
+
+### Configuración
+
+Los datos sensibles se manejan con User Secrets y nunca se guardan en el repositorio:
+
+```bash
+cd src/FerreAPI
+dotnet user-secrets set "ConnectionStrings:FerreApi" "Host=localhost;Port=5432;Database=ferreapi;Username=postgres;Password=<tu_contraseña>"
+dotnet user-secrets set "Jwt:Clave" "<clave_aleatoria_de_al_menos_32_bytes>"
+dotnet user-secrets set "AdminInicial:Email" "admin@ferreapi.local"
+dotnet user-secrets set "AdminInicial:Password" "<contraseña_del_administrador>"
+```
+
+Al iniciar por primera vez con la tabla de usuarios vacía, la API crea el administrador inicial con estas credenciales.
+
+### Base de datos y arranque
+
+```bash
+dotnet ef database update --project src/FerreAPI
+dotnet run --project src/FerreAPI
+```
+
+## Pruebas
+
+```bash
+dotnet test
+```
+
+- **Unitarias:** cubren las reglas del dominio: descuento de stock, cálculo de totales e IVA, redondeo y snapshot de precios.
+- **De integración:** levantan la API completa contra un PostgreSQL desechable creado con Testcontainers y verifican autenticación (401), autorización (403), unicidad (409), aislamiento entre vendedores (404) y que las ventas simultáneas nunca vendan más que el stock disponible.
+
+Docker debe estar en ejecución para correr las pruebas de integración.
+
+## Estructura
+
+```
+FerreAPI/
+├── src/FerreAPI/
+│   ├── Auth/          Login, generación de JWT y políticas
+│   ├── Categorias/
+│   ├── Comun/         Paginación, excepciones de negocio y manejo global de errores
+│   ├── Data/          DbContext
+│   ├── Facturas/
+│   ├── Migrations/
+│   ├── Productos/
+│   └── Usuarios/
+└── tests/FerreAPI.Tests/
+    ├── Facturas/      Pruebas unitarias
+    ├── Productos/     Pruebas unitarias
+    └── Integracion/   Pruebas de integración
+```
+
+El código se organiza por funcionalidad: cada carpeta agrupa su entidad, sus DTOs y sus endpoints.
+
+## Próximos pasos
+
+- Contenerizar la API con Docker y Docker Compose.
+- Integración continua con GitHub Actions.
+- Despliegue en la nube.
