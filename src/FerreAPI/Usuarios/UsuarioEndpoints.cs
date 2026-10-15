@@ -36,9 +36,6 @@ public static class UsuarioEndpoints
     private static async Task<Results<Created<UsuarioResponse>, ValidationProblem, ProblemHttpResult>> CrearUsuario(
         CrearUsuarioRequest req, FerreDbContext db, IPasswordHasher<Usuario> hasher)
     {
-        var errores = req.Validar();
-        if (errores.Count > 0)
-            return TypedResults.ValidationProblem(errores);
 
         var usuario = new Usuario(req.Email, req.Nombre, Enum.Parse<Rol>(req.Rol, ignoreCase: true));
 

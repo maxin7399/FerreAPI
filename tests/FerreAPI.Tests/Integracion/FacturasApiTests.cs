@@ -54,4 +54,21 @@ public class FacturasApiTests(ApiFactory factory)
         var actual = await admin.GetFromJsonAsync<ProductoResponse>($"/api/productos/{producto.Id}");
         Assert.Equal(1, actual!.Stock);
     }
+
+    [Fact]
+    public async Task ObtenerFactura_ConProductoDesactivado_ConservaTodasSusLineas()
+    {
+        var admin = await factory.ClienteAdminAsync();
+        var producto = await admin.CrearProductoAsync(stock: 10);
+        var creada = await admin.PostAsJsonAsync("/api/facturas",
+            new { lineas = new[] { new { productoId = producto.Id, cantidad = 2 } } });
+        var factura = await creada.Content.ReadFromJsonAsync<FacturaResponse>();
+
+        await admin.DeleteAsync($"/api/productos/{producto.Id}");
+
+        var detalle = await admin.GetFromJsonAsync<FacturaResponse>($"/api/facturas/{factura!.Id}");
+        var linea = Assert.Single(detalle!.Lineas);
+        Assert.Equal(producto.Nombre, linea.NombreProducto);
+        Assert.Equal(factura.Total, detalle.Total);
+    }
 }

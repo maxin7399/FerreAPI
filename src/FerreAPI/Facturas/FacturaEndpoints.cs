@@ -80,13 +80,9 @@ public static class FacturaEndpoints
     }
 
     private static async Task<Results<Created<FacturaResponse>, ValidationProblem, ProblemHttpResult>> CrearFactura(
-        CrearFacturaRequest req, ClaimsPrincipal usuarioActual, FerreDbContext db)
+        CrearFacturaRequest req, ClaimsPrincipal usuarioActual, FerreDbContext db, ILoggerFactory loggerFactory)
     {
-        // 1. Validar la petición
-        var errores = req.Validar();
-        if (errores.Count > 0)
-            return TypedResults.ValidationProblem(errores);
-
+        var logger = loggerFactory.CreateLogger("FerreAPI.Facturas");
         // 2. Cargar todos los productos en una sola consulta
         var ids = req.Lineas.Select(l => l.ProductoId).ToList();
         var productos = await db.Productos
@@ -94,6 +90,7 @@ public static class FacturaEndpoints
             .ToDictionaryAsync(p => p.Id);
 
         // 3. Verificar existencia, disponibilidad y stock
+        var errores = new Dictionary<string, string[]>();
         for (var i = 0; i < req.Lineas.Count; i++)
         {
             var linea = req.Lineas[i];
@@ -117,12 +114,14 @@ public static class FacturaEndpoints
         }
         catch (DbUpdateConcurrencyException)
         {
+            logger.ConflictoInventario(usuarioActual.ObtenerUsuarioId());
             return TypedResults.Problem(
                 title: "Inventario modificado",
                 detail: "El stock de uno o más productos cambió mientras se procesaba la venta. Intente de nuevo.",
                 statusCode: StatusCodes.Status409Conflict);
         }
 
+        logger.FacturaCreada(factura.Id, factura.UsuarioId, factura.Lineas.Count, factura.Total);
         await db.Entry(factura).Reference(f => f.Usuario).LoadAsync();
 
         return TypedResults.Created($"/api/facturas/{factura.Id}", factura.ToResponse());

@@ -44,9 +44,6 @@ public static class CategoriaEndpoints
     private static async Task<Results<Created<CategoriaResponse>, ValidationProblem, ProblemHttpResult>> CrearCategoria(
         CrearCategoriaRequest req, FerreDbContext db)
     {
-        var errores = req.Validar();
-        if (errores.Count > 0)
-            return TypedResults.ValidationProblem(errores);
 
         var categoria = req.ToEntidad();
 

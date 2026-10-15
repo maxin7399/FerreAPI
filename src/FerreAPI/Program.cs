@@ -7,6 +7,7 @@ using FerreAPI.Productos;
 using FerreAPI.Usuarios;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -22,6 +23,9 @@ builder.Services.AddExceptionHandler<ManejadorGlobalExcepciones>();
 builder.Services.AddSingleton<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
 builder.Services.Configure<JwtOpciones>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddSingleton<GeneradorTokens>();
+builder.Services.AddValidation();
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<FerreDbContext>(tags: ["ready"]);
 
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOpciones>()!;
 
@@ -66,6 +70,15 @@ app.MapCategorias();
 app.MapFacturas();
 app.MapAuth();
 app.MapUsuarios();
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+}).AllowAnonymous();
 await app.CrearAdministradorInicialAsync();
 app.Run();
 

@@ -4,6 +4,7 @@ using FerreAPI.Data;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using System.ComponentModel.DataAnnotations;
 
 namespace FerreAPI.Productos;
 
@@ -15,7 +16,7 @@ public static class ProductoEndpoints
             .WithTags("Productos")
             .RequireAuthorization(Politicas.Personal);
 
-        grupo.MapGet("/", ObtenerTodos);
+        grupo.MapGet("/", ObtenerTodos).ProducesValidationProblem();
         grupo.MapGet("/{id:int}", ObtenerPorId);
         grupo.MapPost("/", CrearProducto).RequireAuthorization(Politicas.SoloAdministrador);
         grupo.MapPut("/{id:int}", ActualizarProducto).RequireAuthorization(Politicas.SoloAdministrador);
@@ -23,21 +24,15 @@ public static class ProductoEndpoints
 
         return app;
     }
-    private static async Task<Results<Ok<PaginaResponse<ProductoResponse>>, ValidationProblem>> ObtenerTodos(
-    FerreDbContext db, string? busqueda, int? categoriaId, int pagina = 1, int tamanio = 20)
+    private static async Task<Ok<PaginaResponse<ProductoResponse>>> ObtenerTodos(
+    FerreDbContext db, string? busqueda, int? categoriaId,
+    [Range(1, int.MaxValue, ErrorMessage = "La página debe ser mayor o igual a 1.")] int pagina = 1,
+    [Range(1, 100, ErrorMessage = "El tamaño debe estar entre 1 y 100.")] int tamanio = 20)
     {
-        var errores = new Dictionary<string, string[]>();
-        if (pagina < 1)
-            errores["pagina"] = ["La página debe ser mayor o igual a 1."];
-        if (tamanio < 1 || tamanio > 100)
-            errores["tamanio"] = ["El tamaño debe estar entre 1 y 100."];
-        if (errores.Count > 0)
-            return TypedResults.ValidationProblem(errores);
-
         var query = db.Productos
             .Include(p => p.Categoria)
             .AsNoTracking()
-            .Where(p => p.Activo);
+            .Activos();
 
         if (!string.IsNullOrWhiteSpace(busqueda))
             query = query.Where(p =>
@@ -75,9 +70,6 @@ public static class ProductoEndpoints
     private static async Task<Results<Created<ProductoResponse>, ValidationProblem, ProblemHttpResult>> CrearProducto(
     CrearProductoRequest req, FerreDbContext db)
     {
-        var errores = req.Validar();
-        if (errores.Count > 0)
-            return TypedResults.ValidationProblem(errores);
 
         var categoria = await db.Categorias.FindAsync(req.CategoriaId);
         if (categoria is null)
@@ -113,9 +105,6 @@ public static class ProductoEndpoints
     private static async Task<Results<NoContent, ValidationProblem, NotFound>> ActualizarProducto(
         int id, ActualizarProductoRequest req, FerreDbContext db)
     {
-        var errores = req.Validar();
-        if (errores.Count > 0)
-            return TypedResults.ValidationProblem(errores);
 
         var categoria = await db.Categorias.FindAsync(req.CategoriaId);
         if (categoria is null)
