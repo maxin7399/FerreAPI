@@ -18,8 +18,11 @@ public static class AuthEndpoints
     }
 
     private static async Task<Results<Ok<LoginResponse>, ProblemHttpResult>> Login(
-        LoginRequest req, FerreDbContext db, IPasswordHasher<Usuario> hasher, GeneradorTokens generador)
+    LoginRequest req, FerreDbContext db, IPasswordHasher<Usuario> hasher,
+    GeneradorTokens generador, ILoggerFactory loggerFactory)
     {
+        var logger = loggerFactory.CreateLogger("FerreAPI.Auth");
+
         if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
             return CredencialesInvalidas();
 
@@ -27,17 +30,25 @@ public static class AuthEndpoints
         var usuario = await db.Usuarios.FirstOrDefaultAsync(u => u.Email == email);
 
         if (usuario is null || !usuario.Activo)
+        {
+            logger.LoginFallido(email);
             return CredencialesInvalidas();
+        }
 
         var resultado = hasher.VerifyHashedPassword(usuario, usuario.PasswordHash, req.Password);
         if (resultado == PasswordVerificationResult.Failed)
+        {
+            logger.LoginFallido(email);
             return CredencialesInvalidas();
+        }
 
         if (resultado == PasswordVerificationResult.SuccessRehashNeeded)
         {
             usuario.EstablecerPasswordHash(hasher.HashPassword(usuario, req.Password));
             await db.SaveChangesAsync();
         }
+
+        logger.LoginExitoso(usuario.Id);
 
         var (token, expiraEn) = generador.Generar(usuario);
         return TypedResults.Ok(new LoginResponse(token, expiraEn, usuario.Nombre, usuario.Rol.ToString()));

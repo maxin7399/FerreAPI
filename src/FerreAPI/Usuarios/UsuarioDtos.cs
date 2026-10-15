@@ -19,14 +19,14 @@ public record CrearUsuarioRequest(
 
     [Required(ErrorMessage = "El rol es obligatorio.")]
     string Rol) : IValidatableObject
+{
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
-        {
-            if (!Enum.TryParse<Rol>(Rol, ignoreCase: true, out _))
-                yield return new ValidationResult(
-                    "El rol debe ser 'Vendedor' o 'Administrador'.", [nameof(Rol)]);
-        }
+        if (!Enum.TryParse<Rol>(Rol, ignoreCase: true, out _))
+            yield return new ValidationResult(
+                "El rol debe ser 'Vendedor' o 'Administrador'.", [nameof(Rol)]);
     }
+}
 
 public record UsuarioResponse(int Id, string Email, string Nombre, string Rol, bool Activo);
 

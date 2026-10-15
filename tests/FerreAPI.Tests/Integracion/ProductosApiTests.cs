@@ -74,4 +74,14 @@ public class ProductosApiTests(ApiFactory factory)
         Assert.Contains(problema!.Errors.Keys, k => k.Equals("nombre", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(problema.Errors.Keys, k => k.Equals("precioVenta", StringComparison.OrdinalIgnoreCase));
     }
+
+    [Fact]
+    public async Task HealthReady_ConBaseDeDatosDisponible_Devuelve200SinAutenticacion()
+    {
+        var cliente = factory.CreateClient();
+
+        var respuesta = await cliente.GetAsync("/health/ready");
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+    }
 }
