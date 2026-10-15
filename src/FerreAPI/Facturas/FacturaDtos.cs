@@ -1,31 +1,24 @@
-﻿namespace FerreAPI.Facturas;
+﻿using System.ComponentModel.DataAnnotations;
 
-public record LineaRequest(int ProductoId, int Cantidad);
+namespace FerreAPI.Facturas;
 
-public record CrearFacturaRequest(List<LineaRequest> Lineas)
+public record LineaRequest(
+    [Range(1, int.MaxValue, ErrorMessage = "El producto es obligatorio.")]
+    int ProductoId,
+
+    [Range(1, int.MaxValue, ErrorMessage = "La cantidad debe ser mayor que 0.")]
+    int Cantidad);
+
+public record CrearFacturaRequest(
+    [Required(ErrorMessage = "La factura debe tener líneas.")]
+    [MinLength(1, ErrorMessage = "La factura debe tener al menos una línea.")]
+    List<LineaRequest> Lineas) : IValidatableObject
 {
-    public Dictionary<string, string[]> Validar()
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        var errores = new Dictionary<string, string[]>();
-
-        if (Lineas is null || Lineas.Count == 0)
-        {
-            errores["lineas"] = ["La factura debe tener al menos una línea."];
-            return errores;
-        }
-
-        for (var i = 0; i < Lineas.Count; i++)
-        {
-            if (Lineas[i].ProductoId <= 0)
-                errores[$"lineas[{i}].productoId"] = ["El producto es obligatorio."];
-            if (Lineas[i].Cantidad <= 0)
-                errores[$"lineas[{i}].cantidad"] = ["La cantidad debe ser mayor que 0."];
-        }
-
         if (Lineas.GroupBy(l => l.ProductoId).Any(g => g.Count() > 1))
-            errores["lineas"] = ["Un producto no puede aparecer en más de una línea."];
-
-        return errores;
+            yield return new ValidationResult(
+                "Un producto no puede aparecer en más de una línea.", [nameof(Lineas)]);
     }
 }
 

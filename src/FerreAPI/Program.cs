@@ -22,6 +22,7 @@ builder.Services.AddExceptionHandler<ManejadorGlobalExcepciones>();
 builder.Services.AddSingleton<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
 builder.Services.Configure<JwtOpciones>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddSingleton<GeneradorTokens>();
+builder.Services.AddValidation();
 
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOpciones>()!;
 

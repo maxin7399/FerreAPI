@@ -1,19 +1,10 @@
 ﻿namespace FerreAPI.Categorias;
+using System.ComponentModel.DataAnnotations;
 
-public record CrearCategoriaRequest(string Nombre)
-{
-    public Dictionary<string, string[]> Validar()
-    {
-        var errores = new Dictionary<string, string[]>();
-
-        if (string.IsNullOrWhiteSpace(Nombre))
-            errores["nombre"] = ["El nombre es obligatorio."];
-        else if (Nombre.Trim().Length > 60)
-            errores["nombre"] = ["El nombre no puede superar los 60 caracteres."];
-
-        return errores;
-    }
-}
+public record CrearCategoriaRequest(
+    [Required(ErrorMessage = "El nombre es obligatorio.")]
+    [StringLength(60, ErrorMessage = "El nombre no puede superar los 60 caracteres.")]
+    string Nombre);
 
 public record CategoriaResponse(int Id, string Nombre);
 

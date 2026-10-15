@@ -82,10 +82,6 @@ public static class FacturaEndpoints
     private static async Task<Results<Created<FacturaResponse>, ValidationProblem, ProblemHttpResult>> CrearFactura(
         CrearFacturaRequest req, ClaimsPrincipal usuarioActual, FerreDbContext db)
     {
-        // 1. Validar la petición
-        var errores = req.Validar();
-        if (errores.Count > 0)
-            return TypedResults.ValidationProblem(errores);
 
         // 2. Cargar todos los productos en una sola consulta
         var ids = req.Lineas.Select(l => l.ProductoId).ToList();
@@ -94,6 +90,7 @@ public static class FacturaEndpoints
             .ToDictionaryAsync(p => p.Id);
 
         // 3. Verificar existencia, disponibilidad y stock
+        var errores = new Dictionary<string, string[]>();
         for (var i = 0; i < req.Lineas.Count; i++)
         {
             var linea = req.Lineas[i];

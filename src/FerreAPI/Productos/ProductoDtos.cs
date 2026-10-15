@@ -1,30 +1,32 @@
-﻿namespace FerreAPI.Productos;
+﻿using System.ComponentModel.DataAnnotations;
 
-    
+namespace FerreAPI.Productos;
+
+
 public record CrearProductoRequest(
-string Codigo, string Nombre, string? Descripcion, decimal PrecioVenta,
-int Stock, int StockMinimo, int CategoriaId)
-{
-    public Dictionary<string, string[]> Validar()
-    {
-        var errores = new Dictionary<string, string[]>();
+    [Required(ErrorMessage = "El código es obligatorio.")]
+    [StringLength(30, ErrorMessage = "El código no puede superar los 30 caracteres.")]
+    string Codigo,
 
-        if (string.IsNullOrWhiteSpace(Codigo))
-            errores["codigo"] = ["El código es obligatorio."];
-        if (string.IsNullOrWhiteSpace(Nombre))
-            errores["nombre"] = ["El nombre es obligatorio."];
-        if (PrecioVenta <= 0)
-            errores["precioVenta"] = ["El precio debe ser mayor que 0."];
-        if (Stock < 0)
-            errores["stock"] = ["El stock no puede ser negativo."];
-        if (StockMinimo < 0)
-            errores["stockMinimo"] = ["El stock mínimo no puede ser negativo."];
-        if (CategoriaId <= 0)
-            errores["categoriaId"] = ["La categoría es obligatoria."];
+    [Required(ErrorMessage = "El nombre es obligatorio.")]
+    [StringLength(150, ErrorMessage = "El nombre no puede superar los 150 caracteres.")]
+    string Nombre,
 
-        return errores;
-    }
-}
+    [StringLength(500, ErrorMessage = "La descripción no puede superar los 500 caracteres.")]
+    string? Descripcion,
+
+    [Range(0.01, double.MaxValue, ErrorMessage = "El precio debe ser mayor que 0.")]
+    decimal PrecioVenta,
+
+    [Range(0, int.MaxValue, ErrorMessage = "El stock no puede ser negativo.")]
+    int Stock,
+
+    [Range(0, int.MaxValue, ErrorMessage = "El stock mínimo no puede ser negativo.")]
+    int StockMinimo,
+
+    [Range(1, int.MaxValue, ErrorMessage = "La categoría es obligatoria.")]
+    int CategoriaId);
+
 public record ProductoResponse(
     int Id, string Codigo, string Nombre, string? Descripcion, decimal PrecioVenta,
     int Stock, int StockMinimo, int CategoriaId, string CategoriaNombre, bool Activo);
@@ -59,21 +61,19 @@ public static class ProductoMapeos
 }
 
 public record ActualizarProductoRequest(
-    string Nombre, string? Descripcion, decimal PrecioVenta, int StockMinimo, int CategoriaId)
-{
-    public Dictionary<string, string[]> Validar()
-    {
-        var errores = new Dictionary<string, string[]>();
 
-        if (string.IsNullOrWhiteSpace(Nombre))
-            errores["nombre"] = ["El nombre es obligatorio."];
-        if (PrecioVenta <= 0)
-            errores["precioVenta"] = ["El precio debe ser mayor que 0."];
-        if (StockMinimo < 0)
-            errores["stockMinimo"] = ["El stock mínimo no puede ser negativo."];
-        if (CategoriaId <= 0)
-            errores["categoriaId"] = ["La categoría es obligatoria."];
+    [Required(ErrorMessage = "El nombre es obligatorio.")]
+    [StringLength(150, ErrorMessage = "El nombre no puede superar los 150 caracteres.")]
+    string Nombre,
 
-        return errores;
-    }
-}
+    [StringLength(500, ErrorMessage = "La descripción no puede superar los 500 caracteres.")]
+    string? Descripcion,
+
+    [Range(0.01, double.MaxValue, ErrorMessage = "El precio debe ser mayor que 0.")]
+    decimal PrecioVenta,
+
+    [Range(0, int.MaxValue, ErrorMessage = "El stock mínimo no puede ser negativo.")]
+    int StockMinimo,
+
+    [Range(1, int.MaxValue, ErrorMessage = "La categoría es obligatoria.")]
+    int CategoriaId);

@@ -1,32 +1,32 @@
 ﻿using System.Net.Mail;
+using System.ComponentModel.DataAnnotations;
 
 namespace FerreAPI.Usuarios;
 
-public record CrearUsuarioRequest(string Email, string Nombre, string Password, string Rol)
-{
-    public Dictionary<string, string[]> Validar()
+public record CrearUsuarioRequest(
+    [Required(ErrorMessage = "El email es obligatorio.")]
+    [EmailAddress(ErrorMessage = "El email no tiene un formato válido.")]
+    [StringLength(150, ErrorMessage = "El email no puede superar los 150 caracteres.")]
+    string Email,
+
+    [Required(ErrorMessage = "El nombre es obligatorio.")]
+    [StringLength(100, ErrorMessage = "El nombre no puede superar los 100 caracteres.")]
+    string Nombre,
+
+    [Required(ErrorMessage = "La contraseña es obligatoria.")]
+    [StringLength(100, MinimumLength = 8, ErrorMessage = "La contraseña debe tener entre 8 y 100 caracteres.")]
+    string Password,
+
+    [Required(ErrorMessage = "El rol es obligatorio.")]
+    string Rol) : IValidatableObject
     {
-        var errores = new Dictionary<string, string[]>();
-
-        if (string.IsNullOrWhiteSpace(Email) || !MailAddress.TryCreate(Email.Trim(), out _))
-            errores["email"] = ["El email no es válido."];
-        else if (Email.Trim().Length > 150)
-            errores["email"] = ["El email no puede superar los 150 caracteres."];
-
-        if (string.IsNullOrWhiteSpace(Nombre))
-            errores["nombre"] = ["El nombre es obligatorio."];
-        else if (Nombre.Trim().Length > 100)
-            errores["nombre"] = ["El nombre no puede superar los 100 caracteres."];
-
-        if (string.IsNullOrEmpty(Password) || Password.Length < 8)
-            errores["password"] = ["La contraseña debe tener al menos 8 caracteres."];
-
-        if (!Enum.TryParse<Rol>(Rol, ignoreCase: true, out _))
-            errores["rol"] = ["El rol debe ser 'Vendedor' o 'Administrador'."];
-
-        return errores;
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (!Enum.TryParse<Rol>(Rol, ignoreCase: true, out _))
+                yield return new ValidationResult(
+                    "El rol debe ser 'Vendedor' o 'Administrador'.", [nameof(Rol)]);
+        }
     }
-}
 
 public record UsuarioResponse(int Id, string Email, string Nombre, string Rol, bool Activo);
 
