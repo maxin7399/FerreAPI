@@ -37,7 +37,7 @@ public static class ProductoEndpoints
         var query = db.Productos
             .Include(p => p.Categoria)
             .AsNoTracking()
-            .Where(p => p.Activo);
+            .Activos();
 
         if (!string.IsNullOrWhiteSpace(busqueda))
             query = query.Where(p =>
