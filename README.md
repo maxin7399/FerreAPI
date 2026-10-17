@@ -24,6 +24,7 @@ Permite administrar el catálogo de productos y categorías, registrar ventas co
 | Seguridad | JWT Bearer · `PasswordHasher` (PBKDF2 con sal) · políticas de autorización por rol |
 | Documentación | OpenAPI · Scalar |
 | Pruebas | xUnit · `WebApplicationFactory` · Testcontainers |
+| Contenedores | Docker (build multi-stage) · Docker Compose |
 
 ## Modelo de datos
 
@@ -98,6 +99,8 @@ erDiagram
 
 **Seguridad por defecto.** Una política de autorización de respaldo exige autenticación en todo endpoint que no declare otra regla; lo público se abre de forma explícita. El login devuelve el mismo mensaje ante cualquier fallo para evitar la enumeración de usuarios, y una factura ajena responde `404` en lugar de `403` para no revelar su existencia.
 
+**Migraciones separadas de la API.** En Docker, las migraciones se aplican con un bundle de EF Core en un servicio propio que corre una vez antes de la API, en lugar de llamar a `MigrateAsync()` al arrancar. Así varias réplicas de la API no compiten por migrar la base, la API no necesita permisos para modificar el esquema y, si una migración falla, la API no llega a arrancar.
+
 **Rendimiento.** La facturación carga todos los productos en una sola consulta (sin N+1), las consultas de solo lectura usan `AsNoTracking` y el listado de facturas usa proyecciones para traer únicamente las columnas necesarias.
 
 ## Endpoints
@@ -123,6 +126,23 @@ erDiagram
 | `GET` | `/health/ready` | Readiness: la base de datos está disponible | Público |
 
 En entorno de desarrollo, la documentación interactiva está disponible en `/scalar`.
+
+## Ejecución con Docker
+
+La forma más rápida de levantar el proyecto. Solo requiere [Docker](https://www.docker.com/).
+
+```bash
+cp .env.example .env    # y reemplaza los valores
+docker compose up --build
+```
+
+Compose levanta tres servicios en orden:
+
+1. **`db`**: PostgreSQL con un volumen persistente. Los demás esperan a que su healthcheck confirme que acepta conexiones.
+2. **`migraciones`**: un bundle de EF Core que aplica las migraciones pendientes y termina.
+3. **`api`**: arranca solo si las migraciones terminaron bien. Queda disponible en `http://localhost:8080` (la documentación, en `/scalar`).
+
+Los secretos se leen del archivo `.env`, que está excluido del repositorio. Para borrar también los datos: `docker compose down -v`.
 
 ## Ejecución local
 
@@ -188,6 +208,5 @@ El código se organiza por funcionalidad: cada carpeta agrupa su entidad, sus DT
 
 ## Próximos pasos
 
-- Contenerizar la API con Docker y Docker Compose.
 - Integración continua con GitHub Actions.
 - Despliegue en la nube.
