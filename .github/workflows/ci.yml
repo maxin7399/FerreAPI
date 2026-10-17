@@ -1,0 +1,50 @@
+name: CI
+
+# Se ejecuta en cada Pull Request y cuando algo llega a main.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Si subes otro commit al mismo PR, cancela la ejecución anterior.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# El workflow solo necesita leer el código.
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    name: Compilar y probar
+    runs-on: ubuntu-latest   # trae Docker, que Testcontainers necesita
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restaurar paquetes
+        run: dotnet restore
+
+      # Las advertencias también fallan el build, para que no se acumulen.
+      - name: Compilar
+        run: dotnet build --no-restore -c Release -warnaserror
+
+      - name: Ejecutar pruebas
+        run: dotnet test --no-build -c Release --logger "console;verbosity=normal"
+
+  docker:
+    name: Construir imágenes Docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Comprueba que las dos imágenes del Dockerfile siguen compilando.
+      - name: Imagen de la API
+        run: docker build --target final -t ferreapi:ci .
+
+      - name: Imagen de migraciones
+        run: docker build --target migraciones -t ferreapi-migraciones:ci .

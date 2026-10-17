@@ -1,5 +1,7 @@
 # FerreAPI
 
+[![CI](https://github.com/maxin7399/FerreAPI/actions/workflows/ci.yml/badge.svg)](https://github.com/maxin7399/FerreAPI/actions/workflows/ci.yml)
+
 API REST para la gestión de inventario y facturación de una ferretería, construida con **ASP.NET Core (.NET 10)**, **Entity Framework Core** y **PostgreSQL**.
 
 Permite administrar el catálogo de productos y categorías, registrar ventas con cálculo de IVA y descuento automático de inventario, y controlar el acceso por roles mediante JWT. El foco del proyecto está en modelar reglas de negocio reales y en garantizar la consistencia de los datos, incluso ante ventas simultáneas.
@@ -185,6 +187,8 @@ dotnet test
 
 Docker debe estar en ejecución para correr las pruebas de integración.
 
+**Integración continua:** en cada Pull Request y en cada cambio a `main`, GitHub Actions compila la solución (con las advertencias tratadas como errores), ejecuta todas las pruebas y verifica que las imágenes de Docker se construyan.
+
 ## Estructura
 
 ```
@@ -208,5 +212,4 @@ El código se organiza por funcionalidad: cada carpeta agrupa su entidad, sus DT
 
 ## Próximos pasos
 
-- Integración continua con GitHub Actions.
 - Despliegue en la nube.
