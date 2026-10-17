@@ -13,7 +13,23 @@ RUN dotnet restore src/FerreAPI/FerreAPI.csproj
 COPY src/FerreAPI/ src/FerreAPI/
 RUN dotnet publish src/FerreAPI/FerreAPI.csproj -c Release -o /app/publish --no-restore
 
+# ---------- Etapa de migraciones ----------
+# Genera un "bundle": un ejecutable que solo aplica las migraciones pendientes.
+FROM build AS bundle
+RUN dotnet tool install --global dotnet-ef --version 10.0.13
+ENV PATH="$PATH:/root/.dotnet/tools"
+RUN dotnet ef migrations bundle --project src/FerreAPI/FerreAPI.csproj \
+    --configuration Release --output /app/efbundle
+
+# Imagen que compose ejecuta una vez antes de la API: migra y termina.
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS migraciones
+WORKDIR /app
+COPY --from=bundle /app/efbundle .
+USER $APP_UID
+ENTRYPOINT ["./efbundle"]
+
 # ---------- Etapa 2: ejecutar ----------
+# Va al final para que "docker build ." sin --target construya la API.
 # La imagen de runtime solo trae lo necesario para correr la API (~230 MB).
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
