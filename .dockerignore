@@ -1,0 +1,15 @@
+# Resultados de compilación: se generan dentro del contenedor
+**/bin/
+**/obj/
+
+# Archivos de Visual Studio y configuración local
+**/.vs/
+**/*.user
+
+# Las pruebas no forman parte de la imagen
+tests/
+
+# Control de versiones y secretos
+.git/
+.github/
+**/.env
