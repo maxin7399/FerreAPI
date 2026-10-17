@@ -12,6 +12,8 @@ Permite administrar el catálogo de productos y categorías, registrar ventas co
 - **Autenticación y autorización:** login con JWT y dos roles, `Administrador` y `Vendedor`.
 - **Trazabilidad:** cada factura registra el usuario que la emitió; un vendedor solo puede consultar sus propias ventas.
 - **Errores consistentes:** todas las respuestas de error siguen el estándar ProblemDetails (RFC 9457).
+- **Health checks:** `/health/live` indica si el proceso está vivo, sin revisar dependencias; `/health/ready` verifica la conexión con PostgreSQL y responde `503` si la base de datos no está disponible.
+- **Logging estructurado:** los eventos de negocio (factura creada, conflicto de inventario, inicio de sesión exitoso o fallido) se registran con `[LoggerMessage]`, con campos consultables y un `EventId` fijo por módulo (1xxx autenticación, 2xxx facturación).
 
 ## Stack
 
@@ -88,6 +90,10 @@ erDiagram
 
 **Borrado lógico.** Productos y usuarios no se eliminan físicamente, se desactivan. Así se conserva la integridad del historial de facturas.
 
+**Inactivos con filtro explícito.** Los listados excluyen los productos desactivados con el método `Activos()`, en lugar de un filtro global de EF Core (`HasQueryFilter`). Un filtro global se aplicaría también al cargar las líneas de facturas antiguas y ocultaría los productos que ya no se venden; con el filtro explícito, cada consulta deja ver qué datos trae.
+
+**Validación en dos capas.** La forma de la petición (campos obligatorios, longitudes, rangos, productos repetidos en una factura) se valida de forma declarativa con atributos e `IValidatableObject`, mediante la validación integrada de .NET 10, antes de que se ejecute el handler. El estado del negocio (que el producto exista, esté activo y tenga stock, o que un código no esté repetido) se valida en el handler, porque necesita consultar la base de datos. Las dos capas responden con el mismo `400` en formato ProblemDetails.
+
 **Redondeo contable.** El IVA se redondea con `MidpointRounding.AwayFromZero` (0,285 → 0,29), en lugar del redondeo bancario que .NET aplica por defecto.
 
 **Seguridad por defecto.** Una política de autorización de respaldo exige autenticación en todo endpoint que no declare otra regla; lo público se abre de forma explícita. El login devuelve el mismo mensaje ante cualquier fallo para evitar la enumeración de usuarios, y una factura ajena responde `404` en lugar de `403` para no revelar su existencia.
@@ -113,6 +119,8 @@ erDiagram
 | `GET` | `/api/usuarios` | Lista usuarios | Administrador |
 | `POST` | `/api/usuarios` | Crea un usuario | Administrador |
 | `DELETE` | `/api/usuarios/{id}` | Desactiva un usuario | Administrador |
+| `GET` | `/health/live` | Liveness: el proceso responde | Público |
+| `GET` | `/health/ready` | Readiness: la base de datos está disponible | Público |
 
 En entorno de desarrollo, la documentación interactiva está disponible en `/scalar`.
 
