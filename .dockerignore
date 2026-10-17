@@ -9,6 +9,11 @@
 # Las pruebas no forman parte de la imagen
 tests/
 
+# Archivos locales de Claude Code
+**/CLAUDE.md
+**/CLAUDE.local.md
+**/.claude/
+
 # Control de versiones y secretos
 .git/
 .github/
