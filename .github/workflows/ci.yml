@@ -7,9 +7,10 @@ on:
     branches: [main]
 
 # Si subes otro commit al mismo PR, cancela la ejecución anterior.
+# En main no se cancela: cortar un despliegue a la mitad es peor que esperar.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # El workflow solo necesita leer el código.
 permissions:
@@ -48,3 +49,57 @@ jobs:
 
       - name: Imagen de migraciones
         run: docker build --target migraciones -t ferreapi-migraciones:ci .
+
+  desplegar:
+    name: Desplegar en Azure
+    # Solo cuando algo llega a main y los dos jobs anteriores pasaron.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [pruebas, docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # publicar las imágenes en ghcr.io
+      id-token: write   # pedirle a GitHub el token OIDC para Azure
+    env:
+      IMAGEN_API: ghcr.io/maxin7399/ferreapi:${{ github.sha }}
+      IMAGEN_MIGRACIONES: ghcr.io/maxin7399/ferreapi-migraciones:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Iniciar sesión en GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      # Cada imagen se etiqueta con el SHA del commit: se sabe exactamente qué código corre.
+      - name: Publicar imágenes
+        run: |
+          docker build --target final -t "$IMAGEN_API" .
+          docker build --target migraciones -t "$IMAGEN_MIGRACIONES" .
+          docker push "$IMAGEN_API"
+          docker push "$IMAGEN_MIGRACIONES"
+
+      # Antes que la API nueva, para que encuentre las tablas que espera.
+      # Usa la conexión directa: el bloqueo de migraciones no funciona a través del pooler.
+      - name: Aplicar migraciones en Neon
+        run: docker run --rm -e "ConnectionStrings__FerreApi=${{ secrets.NEON_MIGRACIONES }}" "$IMAGEN_MIGRACIONES"
+
+      - name: Iniciar sesión en Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Actualizar la app
+        run: |
+          az containerapp ingress update -g rg-ferreapi -n ca-ferreapi --target-port 8080 --output none
+          az containerapp update -g rg-ferreapi -n ca-ferreapi --image "$IMAGEN_API" --output none
+
+      - name: Verificar que la API responde
+        run: |
+          url="https://$(az containerapp show -g rg-ferreapi -n ca-ferreapi --query properties.configuration.ingress.fqdn -o tsv)"
+          for intento in $(seq 1 12); do
+            if curl -fsS --max-time 20 "$url/health/ready"; then echo; echo "API lista en $url"; exit 0; fi
+            echo "Intento $intento: todavía no responde, reintentando en 10 s..."
+            sleep 10
+          done
+          echo "La API no respondió en /health/ready"; exit 1
