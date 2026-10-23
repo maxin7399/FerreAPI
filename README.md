@@ -6,6 +6,8 @@ API REST para la gestión de inventario y facturación de una ferretería, const
 
 Permite administrar el catálogo de productos y categorías, registrar ventas con cálculo de IVA y descuento automático de inventario, y controlar el acceso por roles mediante JWT. El foco del proyecto está en modelar reglas de negocio reales y en garantizar la consistencia de los datos, incluso ante ventas simultáneas.
 
+**API en vivo:** [documentación interactiva (Scalar)](https://ca-ferreapi.graymoss-88f7523c.eastus2.azurecontainerapps.io/scalar) · [estado](https://ca-ferreapi.graymoss-88f7523c.eastus2.azurecontainerapps.io/health/ready). Desplegada en Azure Container Apps; la primera petición después de un rato sin uso puede tardar unos segundos mientras la app y la base de datos arrancan.
+
 ## Funcionalidades
 
 - **Catálogo:** productos y categorías con búsqueda, filtros y paginación.
@@ -27,6 +29,7 @@ Permite administrar el catálogo de productos y categorías, registrar ventas co
 | Documentación | OpenAPI · Scalar |
 | Pruebas | xUnit · `WebApplicationFactory` · Testcontainers |
 | Contenedores | Docker (build multi-stage) · Docker Compose |
+| CI/CD y nube | GitHub Actions · GitHub Container Registry · Azure Container Apps · Neon (PostgreSQL) |
 
 ## Modelo de datos
 
@@ -189,6 +192,21 @@ Docker debe estar en ejecución para correr las pruebas de integración.
 
 **Integración continua:** en cada Pull Request y en cada cambio a `main`, GitHub Actions compila la solución (con las advertencias tratadas como errores), ejecuta todas las pruebas y verifica que las imágenes de Docker se construyan.
 
+## Despliegue
+
+Cada cambio que llega a `main` se despliega automáticamente, solo si la compilación y las pruebas pasaron:
+
+```
+merge a main ─▶ CI en verde ─▶ imágenes a ghcr.io (etiquetadas con el SHA del commit)
+             ─▶ migraciones en Neon ─▶ nueva revisión en Azure Container Apps ─▶ verificación de /health/ready
+```
+
+- **Sin contraseñas de Azure en GitHub:** el pipeline se autentica con OIDC, mediante una credencial federada que solo acepta la rama `main` de este repositorio, y tiene permisos de Contributor únicamente sobre el grupo de recursos del proyecto.
+- **Migraciones con conexión directa:** la API se conecta a Neon a través de su pooler (PgBouncer), pero las migraciones usan una conexión directa, porque el bloqueo de migraciones de EF Core necesita mantener la misma sesión.
+- **Probes de salud:** Azure usa `/health/live` para el arranque (startup) y la vida del contenedor (liveness), y `/health/ready` para decidir cuándo enviarle tráfico (readiness). Una revisión nueva solo recibe peticiones cuando su readiness pasa, así que los despliegues no interrumpen el servicio.
+- **Secretos fuera del código:** la cadena de conexión, la clave JWT y la contraseña del administrador viven como secretos de Container Apps y llegan a la API como variables de entorno.
+- **Costo cero:** la app escala a cero réplicas cuando no recibe tráfico, y la base de datos usa el plan gratuito de Neon.
+
 ## Estructura
 
 ```
@@ -212,4 +230,5 @@ El código se organiza por funcionalidad: cada carpeta agrupa su entidad, sus DT
 
 ## Próximos pasos
 
-- Despliegue en la nube.
+- Frontend web que consuma la API.
+- Revocar el acceso de un usuario desactivado aunque su token siga vigente.
